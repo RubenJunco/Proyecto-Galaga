@@ -1,69 +1,83 @@
-// VARIABLES 
-let nave; // jugador
-let nivel = 1; 
-let vidas = 3; 
-let puntaje = 0; 
-let estado = 'inicio'; // Estado del juego 
-let topPuntajes = []; // Top 5 
-let disparos = []; 
-let disparosEnemigos = [];
-let enemigos = []; 
+/// VARIABLES
+let jugador; // jugador
+let imgJugador; //imagen del jugador
+let imgProyectil;
+let imgEnemigo;
+let nivel = 1;
+let vidas = 3;
+let puntaje = 0;
+let estado = "inicio"; // Estado del juego
+let tops = []; // Top 5
+let disparos = [];
+let disparosNeg = [];
+let enemigos = [];
 
+// PRECARGA DE IMAGENES Y SONIDOS
+let imgArcade; // Variable para la imagen arcade
+
+function preload() {
+  imgJugador = loadImage("mono.png");
+  imgProyectil = loadImage("banana.png");
+  imgEnemigo = loadImage("enemigo_1.png");
+  imgArcade = loadImage("arcade_galaga.png"); // Carga la imagen
+}
 
 // CONFIGURACIÓN INICIAL DEL JUEGO
 function setup() {
-  createCanvas(800, 800); 
-  nave = new Nave(); 
-  cargarTop(); 
-  generarEnemigos(); 
+  createCanvas(1500, 1000);
+  jugador = new Nave();
+  cargarTop();
+  generarEnemigos();
 }
 
 // BUCLE PRINCIPAL DEL JUEGO
 function draw() {
-  background(0); // Fondo negro
+  background(0);
 
-  if (estado === 'inicio') {
-    mostrarInicio();
-  } else if (estado === 'jugando') {
+  if (estado === "inicio") {
+    imageMode(CENTER);
+    image(imgArcade, width / 2, height / 2); // Muestra la imagen centrada
+    // Puedes agregar texto adicional si lo deseas
+  } else if (estado === "jugando") {
     mostrarHUD();
-    nave.mostrar();
-    nave.mover();
+    jugador.mostrar();
+    jugador.mover();
 
-    // Actualiza disparos del jugador
+    // ACTUALIZA DISPAROS JUGADOR
     for (let i = disparos.length - 1; i >= 0; i--) {
       disparos[i].mover();
       disparos[i].mostrar();
       if (disparos[i].fueraDePantalla()) disparos.splice(i, 1);
     }
 
-    // Actualiza disparos enemigos
-    for (let i = disparosEnemigos.length - 1; i >= 0; i--) {
-      disparosEnemigos[i].mover();
-      disparosEnemigos[i].mostrar();
-      if (disparosEnemigos[i].fueraDePantalla()) {
-        disparosEnemigos.splice(i, 1);
+    // ACTUALIZA DISPAROS ENEMIGOS
+    for (let i = disparosNeg.length - 1; i >= 0; i--) {
+      disparosNeg[i].mover();
+      disparosNeg[i].mostrar();
+      if (disparosNeg[i].fueraDePantalla()) {
+        disparosNeg.splice(i, 1);
         continue;
       }
-      if (disparosEnemigos[i].colisionaCon(nave)) {
+      if (disparosNeg[i].colisionaCon(jugador)) {
         perderVida();
-        disparosEnemigos.splice(i, 1);
+        disparosNeg.splice(i, 1);
       }
     }
 
-    // Actualiza enemigos
+    // ACTUALIZA ENEMIGOS
     for (let i = enemigos.length - 1; i >= 0; i--) {
       enemigos[i].mover();
       enemigos[i].mostrar();
       enemigos[i].disparar();
 
-      if (enemigos[i].colisionaCon(nave)) perderVida();
+      if (enemigos[i].colisionaCon(jugador)) perderVida();
       if (enemigos[i].llegoAbajo()) {
         perderVida();
         enemigos.splice(i, 1);
-        continue;
+        continue;IMG
       }
 
-      // Verifica colisiones con disparos del jugador
+      // VERIFICA COLISIONES
       for (let j = disparos.length - 1; j >= 0; j--) {
         if (enemigos[i].fueAlcanzado(disparos[j])) {
           puntaje += enemigos[i].puntaje;
@@ -75,47 +89,48 @@ function draw() {
       }
     }
 
-    // Si no hay enemigos, pasa al siguiente nivel
+    // LEVEL UP
     if (enemigos.length === 0) pasarNivel();
-  } else if (estado === 'fin') {
+  } else if (estado === "fin") {
     mostrarFin();
+  }
+}
+
+//VERIFICAR SI PASA DE NIVEL
+function pasarNivel() {
+  nivel++;
+  if (nivel > 3) {
+    guardarPuntaje();
+    estado = "fin";
+  } else {
+    generarEnemigos();
   }
 }
 
 // CONTROLES DEL TECLADO
 function keyPressed() {
-  if (estado === 'inicio' && key === ' ') {
-    estado = 'jugando';
+  if (estado === "inicio" && key === " ") {
+    estado = "jugando";
   }
-  if (estado === 'jugando') {
-    if (keyCode === LEFT_ARROW) nave.dir = -1;
-    if (keyCode === RIGHT_ARROW) nave.dir = 1;
-    if (key === ' ') {
-      disparos.push(new Disparo(nave.x));
+  if (estado === "jugando") {
+    if (keyCode === LEFT_ARROW) jugador.dir = -1;
+    if (keyCode === RIGHT_ARROW) jugador.dir = 1;
+    if (key === " ") {
+      disparos.push(new Disparo(jugador.x));
     }
   }
 }
 
 function keyReleased() {
-  if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) nave.dir = 0;
+  if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) jugador.dir = 0;
 }
 
-// FUNCIONES DE ESTADO DE JUEGO
+// VIDAS
 function perderVida() {
   vidas--;
   if (vidas <= 0) {
     guardarPuntaje();
-    estado = 'fin';
-  }
-}
-
-function pasarNivel() {
-  nivel++;
-  if (nivel > 3) {
-    guardarPuntaje();
-    estado = 'fin';
-  } else {
-    generarEnemigos();
+    estado = "fin";
   }
 }
 
@@ -129,11 +144,34 @@ function mostrarHUD() {
 }
 
 function mostrarInicio() {
-  fill(255);
+  background(0);
+
   textAlign(CENTER);
-  textSize(20);
-  text('Juego Galaga', width / 2, height / 2 - 20);
-  text('Presiona ESPACIO para comenzar', width / 2, height / 2);
+  textFont("Press Start 2P");
+
+  // TITULO
+  let titulo = "GALAGA: INVASIÓN";
+  for (let i = 0; i < titulo.length; i++) {
+    let c = color(map(i, 0, titulo.length, 100, 255), random(100, 255), 255);
+    fill(c);
+    textSize(28);
+    text(titulo[i], width / 2 - 170 + i * 20, height / 2 - 140);
+  }
+
+  // INSTRUCCIONES
+  fill(255);
+  textSize(12);
+  text("← → para mover la nave", width / 2, height / 2 - 60);
+  text("Espacio para disparar", width / 2, height / 2 - 40);
+  text("Destruye a todos los enemigos", width / 2, height / 2 - 20);
+
+  // ESPACIO PARA COMENZAR
+  fill(random(150, 255), random(150, 255), 255); // efecto color cambiante
+  textSize(12);
+  text("Presiona ESPACIO para comenzar", width / 2, height / 2 + 20);
+
+  // TOP
+  fill(255);
   mostrarTop();
 }
 
@@ -141,30 +179,30 @@ function mostrarFin() {
   fill(255);
   textAlign(CENTER);
   textSize(20);
-  text('¡Juego Terminado!', width / 2, height / 2 - 20);
+  text("¡Juego Terminado!", width / 2, height / 2 - 20);
   text(`Puntaje final: ${puntaje}`, width / 2, height / 2);
-  text('Recarga la página para reiniciar', width / 2, height / 2 + 20);
+  text("Recarga la página para reiniciar", width / 2, height / 2 + 20);
   mostrarTop();
 }
 
 // FUNCIONES PARA PUNTAJES
 function guardarPuntaje() {
-  topPuntajes.push(puntaje);
-  topPuntajes.sort((a, b) => b - a);
-  topPuntajes = topPuntajes.slice(0, 5);
-  localStorage.setItem('topPuntajes', JSON.stringify(topPuntajes));
+  tops.push(puntaje);
+  tops.sort((a, b) => b - a);
+  tops = tops.slice(0, 5);
+  localStorage.setItem("topPuntajes", JSON.stringify(tops));
 }
 
 function cargarTop() {
-  const data = localStorage.getItem('topPuntajes');
-  if (data) topPuntajes = JSON.parse(data);
+  const data = localStorage.getItem("topPuntajes");
+  if (data) tops = JSON.parse(data);
 }
 
 function mostrarTop() {
   textSize(16);
-  text('Top 5 Puntajes:', width / 2, height / 2 + 60);
-  for (let i = 0; i < topPuntajes.length; i++) {
-    text(`${i + 1}. ${topPuntajes[i]}`, width / 2, height / 2 + 80 + i * 20);
+  text("Top 5 Puntajes:", width / 2, height / 2 + 60);
+  for (let i = 0; i < tops.length; i++) {
+    text(`${i + 1}. ${tops[i]}`, width / 2, height / 2 + 80 + i * 20);
   }
 }
 
@@ -223,12 +261,12 @@ class Enemigo {
     }
   }
   mostrar() {
-    fill(255, 0, 0);
-    ellipse(this.x, this.y, 30);
+    imageMode(CENTER);
+    image(imgEnemigo, this.x, this.y, 80, 50); //POR  CADA NIVEL METER UN ENEMIGO DIFERENTE... MEJORAR ESO PLS
   }
   disparar() {
     if (this.nivel >= 2 && random() < 0.01) {
-      disparosEnemigos.push(new DisparoEnemigo(this.x, this.y));
+      disparosNeg.push(new DisparoEnemigo(this.x, this.y));
     }
   }
   colisionaCon(nave) {
@@ -254,34 +292,41 @@ class Nave {
     this.x = constrain(this.x, 20, width - 20);
   }
   mostrar() {
-    fill(0, 200, 255);
-    triangle(this.x, this.y, this.x - 30, this.y + 60, this.x + 30, this.y + 60);
+    imageMode(CENTER);
+    image(imgJugador, this.x, this.y - 20, 80, 80);
   }
 }
 
 function mostrarHUD() {
-  const hud = document.getElementById('hud');
+  const hud = document.getElementById("hud");
   if (hud) {
     hud.innerText = `Nivel: ${nivel}   Vidas: ${vidas}   Puntaje: ${puntaje}`;
   }
 }
 
-
 class Disparo {
   constructor(x) {
     this.x = x;
     this.y = height - 80;
+    this.angulo = random(-TWO_PI);
+    this.velocidad = random(0.1, 0.3);
   }
   mover() {
     this.y -= 7;
+    this.angulo += this.velocidad; //GIRALAAAAA (HACE QUE EL DISPARO GIRE)
   }
   mostrar() {
-    stroke(455);
-    strokeWeight(6);
-    line(this.x, this.y, this.x, this.y - 15);
-    strokeWeight(1);
+    push();
+    translate(this.x, this.y);
+    rotate(this.angulo);
+    imageMode(CENTER);
+    image(imgProyectil, 0, 0, 20, 40);
+    pop();
+    //imageMode(CENTER);
+    //image(imgDisparo, this.x, this.y, 20, 40);
   }
   fueraDePantalla() {
     return this.y < 0;
   }
 }
+
