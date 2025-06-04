@@ -1,102 +1,359 @@
-/// VARIABLES
-let jugador; // jugador
-let imgJugador; //imagen del jugador
+/// VARIABLES GLOBALES
+let juegoW = 880;
+let juegoH = 650;
+let escala;
+let offsetX, offsetY;
+
+
+// Variables de juego
+let jugador;
+let imgJugadorAbajo, imgJugadorArriba, imgJugadorDerecha, imgJugadorIzquierda;
 let imgProyectil;
-let imgEnemigo;
+let imgEnemigo1, imgEnemigo2, imgMeteorito;
+let imgFondoInicio, imgFondoJuego;
+let imgEstrella;
+let imgGameOver;
 let nivel = 1;
 let vidas = 3;
 let puntaje = 0;
-let estado = "inicio"; // Estado del juego
-let tops = []; // Top 5
+let estado = "inicio";
+let tops = [];
 let disparos = [];
 let disparosNeg = [];
 let enemigos = [];
+let estrellas = [];
+let tiempoUltimaEstrella = 0;
+let intervaloEstrellas = 15000; 
+let sonidoDisparo;
 
-// PRECARGA DE IMAGENES Y SONIDOS
-let imgArcade; // Variable para la imagen arcade
+
+// Música
+let musicaFondo;
+let musicaIniciada = false;
 
 function preload() {
-  imgJugador = loadImage("mono.png");
+  imgJugadorAbajo = loadImage("HamsterAbajo.png");
+  imgJugadorArriba = loadImage("HamsterArriba.png");
+  imgJugadorDerecha = loadImage("HamsterDerecha.png");
+  imgJugadorIzquierda = loadImage("HamsterIzquierda.png");
+  imgEnemigo1 = loadImage("Enemigo1.png");
+  imgEnemigo2 = loadImage("Enemigo2.png");
+  imgMeteorito = loadImage("meteorito.png");
+  imgFondoInicio = loadImage("fondo.png");
+  imgFondoJuego = loadImage("fondoNivel.png");
   imgProyectil = loadImage("banana.png");
-  imgEnemigo = loadImage("enemigo_1.png");
-  imgArcade = loadImage("arcade_galaga.png"); // Carga la imagen
+  imgEstrella = loadImage("estrella.png");
+  imgGameOver = loadImage("GameOver.png");
+  sonidoDisparo = loadSound("bala.mp3");
+  musicaFondo = loadSound("GetLuck.mp3");
 }
 
-// CONFIGURACIÓN INICIAL DEL JUEGO
 function setup() {
-  createCanvas(1500, 1000);
+  createCanvas(750, 700);
+  escala = min(width / juegoW, height / juegoH) * 0.9;
+  offsetX = (width - juegoW * escala) / 2;
+  offsetY = (height - juegoH * escala) / 2;
+  smooth();
+  noStroke();
   jugador = new Nave();
   cargarTop();
   generarEnemigos();
+  tiempoUltimaEstrella = millis();
 }
 
-// BUCLE PRINCIPAL DEL JUEGO
 function draw() {
   background(0);
+  noFill();
+  stroke(100);
+  rect(offsetX, offsetY, juegoW * escala, juegoH * escala);
+  dibujarJuego();
 
-  if (estado === "inicio") {
-    imageMode(CENTER);
-    image(imgArcade, width / 2, height / 2); // Muestra la imagen centrada
-    // Puedes agregar texto adicional si lo deseas
-  } else if (estado === "jugando") {
-    mostrarHUD();
-    jugador.mostrar();
-    jugador.mover();
-
-    // ACTUALIZA DISPAROS JUGADOR
-    for (let i = disparos.length - 1; i >= 0; i--) {
-      disparos[i].mover();
-      disparos[i].mostrar();
-      if (disparos[i].fueraDePantalla()) disparos.splice(i, 1);
+  if (estado === "jugando") {
+    if (!musicaIniciada) {
+      musicaFondo.setVolume(0.3);
+      musicaFondo.loop();
+      musicaIniciada = true;
     }
-
-    // ACTUALIZA DISPAROS ENEMIGOS
-    for (let i = disparosNeg.length - 1; i >= 0; i--) {
-      disparosNeg[i].mover();
-      disparosNeg[i].mostrar();
-      if (disparosNeg[i].fueraDePantalla()) {
-        disparosNeg.splice(i, 1);
-        continue;
-      }
-      if (disparosNeg[i].colisionaCon(jugador)) {
-        perderVida();
-        disparosNeg.splice(i, 1);
-      }
+  } else {
+    if (musicaIniciada) {
+      musicaFondo.stop();
+      musicaIniciada = false;
     }
-
-    // ACTUALIZA ENEMIGOS
-    for (let i = enemigos.length - 1; i >= 0; i--) {
-      enemigos[i].mover();
-      enemigos[i].mostrar();
-      enemigos[i].disparar();
-
-      if (enemigos[i].colisionaCon(jugador)) perderVida();
-      if (enemigos[i].llegoAbajo()) {
-        perderVida();
-        enemigos.splice(i, 1);
-        continue;IMG
-      }
-
-      // VERIFICA COLISIONES
-      for (let j = disparos.length - 1; j >= 0; j--) {
-        if (enemigos[i].fueAlcanzado(disparos[j])) {
-          puntaje += enemigos[i].puntaje;
-          enemigos[i].vida--;
-          disparos.splice(j, 1);
-          if (enemigos[i].vida <= 0) enemigos.splice(i, 1);
-          break;
-        }
-      }
-    }
-
-    // LEVEL UP
-    if (enemigos.length === 0) pasarNivel();
-  } else if (estado === "fin") {
-    mostrarFin();
   }
 }
 
-//VERIFICAR SI PASA DE NIVEL
+function dibujarJuego() {
+  push();
+  translate(offsetX, offsetY);
+  scale(escala);
+
+  if (estado === "inicio") {
+    image(imgFondoInicio, 0, 0, juegoW, juegoH);
+    mostrarMenuInicio();
+  } else if (estado === "jugando") {
+    image(imgFondoJuego, 0, 0, juegoW, juegoH);
+    actualizarJuego();
+  } else if (estado === "fin") {
+    mostrarGameOver();
+  }
+
+  pop();
+}
+
+class Nave {
+  constructor() {
+    this.x = juegoW / 2;
+    this.y = juegoH - 80;
+    this.dir = 0;
+    this.velocidad = 5;
+    this.direccion = "abajo";
+    this.ancho = 60;
+    this.alto = 60;
+  }
+
+  mover() {
+    this.x = constrain(this.x + this.dir * this.velocidad, this.ancho/2, juegoW - this.ancho/2);
+    if (keyIsDown(LEFT_ARROW)) this.direccion = "izquierda";
+    else if (keyIsDown(RIGHT_ARROW)) this.direccion = "derecha";
+    else this.direccion = "abajo";
+  }
+
+  mostrar() {
+    imageMode(CENTER);
+    switch(this.direccion) {
+      case "izquierda": image(imgJugadorIzquierda, this.x, this.y, this.ancho, this.alto); break;
+      case "derecha": image(imgJugadorDerecha, this.x, this.y, this.ancho, this.alto); break;
+      case "arriba": image(imgJugadorArriba, this.x, this.y, this.ancho, this.alto); break;
+      default: image(imgJugadorAbajo, this.x, this.y, this.ancho, this.alto);
+    }
+  }
+}
+
+class Enemigo {
+  constructor(nivel) {
+    this.x = random(50, juegoW - 50);
+    this.y = random(-200, -40);
+    this.dir = random([-1, 1]);
+    this.vel = 0.5 + nivel * 0.5;
+    this.tipo = this.determinarTipo(nivel);
+    this.vida = this.tipo === 'meteorito' ? 3 : (nivel >= 2 && random() < 0.3 ? 3 : 1);
+    this.puntaje = this.tipo === 'meteorito' ? 15 : (this.vida === 3 ? 3 : 1);
+    this.nivel = nivel;
+    this.ancho = this.tipo === 'meteorito' ? 50 : 60;
+    this.alto = this.tipo === 'meteorito' ? 50 : 80;
+  }
+
+  determinarTipo(nivel) {
+    if (nivel >= 2 && random() < (nivel === 2 ? 0.1 : 0.15)) return 'meteorito';
+    return 'normal';
+  }
+
+  mover() {
+    if (this.tipo !== 'meteorito') {
+      this.x += this.dir * (this.nivel === 1 ? 0 : this.nivel === 2 ? 1.5 : 2);
+      if (this.x < 0 || this.x > juegoW) this.dir *= -1;
+      if (this.nivel === 3 && random() < 0.01) this.dir *= -1;
+    }
+    this.y += this.vel;
+  }
+
+  mostrar() {
+    imageMode(CENTER);
+    if (this.tipo === 'meteorito') image(imgMeteorito, this.x, this.y, this.ancho, this.alto);
+    else image(this.nivel >= 3 ? imgEnemigo2 : imgEnemigo1, this.x, this.y, this.ancho, this.alto);
+  }
+
+  disparar() {
+    if (this.nivel >= 2 && this.tipo !== 'meteorito' && random() < 0.01) {
+      disparosNeg.push(new DisparoEnemigo(this.x, this.y));
+    }
+  }
+}
+
+class Estrella {
+  constructor() {
+    this.x = random(50, juegoW - 50);
+    this.y = -30;
+    this.vel = 2;
+    this.ancho = 30;
+    this.alto = 30;
+    this.activa = true;
+  }
+
+  mover() { this.y += this.vel; }
+
+  mostrar() {
+    if (this.activa) {
+      imageMode(CENTER);
+      image(imgEstrella, this.x, this.y, this.ancho, this.alto);
+    }
+  }
+}
+
+class Disparo {
+  constructor(x) {
+    this.x = x;
+    this.y = juegoH - 80;
+    this.ancho = 15;
+    this.alto = 30;
+  }
+  mover() { this.y -= 10; }
+  mostrar() { image(imgProyectil, this.x, this.y, this.ancho, this.alto); }
+}
+
+class DisparoEnemigo {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+  }
+  mover() { this.y += 5; }
+  mostrar() {
+    stroke(255, 0, 0);
+    strokeWeight(2);
+    line(this.x, this.y, this.x, this.y + 15);
+  }
+}
+
+function mostrarMenuInicio() {
+  push();
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(32);
+  text("HAMSTER DEFENSE", juegoW/2, juegoH/2 - 50);
+  textSize(16);
+  text("Presiona ESPACIO para comenzar", juegoW/2, juegoH/2 + 50);
+  pop();
+}
+
+function mostrarGameOver() {
+  image(imgGameOver, 0, 0, juegoW, juegoH);
+  push();
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(32);
+  text("\u00a1GAME OVER!", juegoW/2, juegoH/2 - 80);
+  textSize(24);
+  text(`Puntaje: ${puntaje}`, juegoW/2, juegoH/2 - 30);
+  mostrarTop();
+  textSize(16);
+  text("Presiona R para reiniciar", juegoW/2, juegoH/2 + 120);
+  text("Recarga para jugar", juegoW/2, juegoH/2 + 150);
+  pop();
+}
+
+function actualizarJuego() {
+  if (estrellas.length < nivel && millis() - tiempoUltimaEstrella > intervaloEstrellas) {
+    estrellas.push(new Estrella());
+    tiempoUltimaEstrella = millis();
+  }
+
+  for (let i = estrellas.length - 1; i >= 0; i--) {
+    let estrella = estrellas[i];
+    estrella.mover();
+    estrella.mostrar();
+
+    if (estrella.activa && dist(estrella.x, estrella.y, jugador.x, jugador.y) < 30) {
+      puntaje += 10;
+      estrella.activa = false;
+      estrellas.splice(i, 1);
+      continue;
+    }
+
+    for (let j = disparos.length - 1; j >= 0; j--) {
+      if (estrella.activa && dist(disparos[j].x, disparos[j].y, estrella.x, estrella.y) < 20) {
+        puntaje += 10;
+        estrella.activa = false;
+        estrellas.splice(i, 1);
+        disparos.splice(j, 1);
+        break;
+      }
+    }
+
+    if (estrella.y > juegoH) estrellas.splice(i, 1);
+  }
+
+  jugador.mostrar();
+  jugador.mover();
+
+  for (let i = disparos.length - 1; i >= 0; i--) {
+    disparos[i].mover();
+    disparos[i].mostrar();
+    if (disparos[i].y < 0) disparos.splice(i, 1);
+
+    for (let j = enemigos.length - 1; j >= 0; j--) {
+      if (dist(disparos[i]?.x, disparos[i]?.y, enemigos[j]?.x, enemigos[j]?.y) < 30) {
+        enemigos[j].vida--;
+        if (enemigos[j].vida <= 0) {
+          puntaje += enemigos[j].puntaje;
+          enemigos.splice(j, 1);
+        }
+        disparos.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  for (let i = enemigos.length - 1; i >= 0; i--) {
+    enemigos[i].mover();
+    enemigos[i].mostrar();
+    enemigos[i].disparar();
+
+    if (dist(enemigos[i].x, enemigos[i].y, jugador.x, jugador.y) < 40 || enemigos[i].y > juegoH) {
+      perderVida();
+      enemigos.splice(i, 1);
+    }
+  }
+
+  for (let i = disparosNeg.length - 1; i >= 0; i--) {
+    disparosNeg[i].mover();
+    disparosNeg[i].mostrar();
+    if (disparosNeg[i].y > juegoH || dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20) {
+      if (dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20) perderVida();
+      disparosNeg.splice(i, 1);
+    }
+  }
+
+  mostrarHUD();
+  if (enemigos.length === 0) pasarNivel();
+}
+
+function mostrarHUD() {
+  push();
+  fill(255);
+  textSize(16);
+  textAlign(LEFT, TOP);
+  text(`Nivel: ${nivel}   Vidas: ${vidas}   Puntaje: ${puntaje}`, 20, 20);
+  pop();
+}
+
+function cargarTop() {
+  const datos = localStorage.getItem("topPuntajes");
+  if (datos) tops = JSON.parse(datos);
+}
+
+function guardarPuntaje() {
+  tops.push(puntaje);
+  tops.sort((a, b) => b - a);
+  tops = tops.slice(0, 5);
+  localStorage.setItem("topPuntajes", JSON.stringify(tops));
+}
+
+function mostrarTop() {
+  textSize(16);
+  text("TOP 5:", juegoW/2, juegoH/2 + 60);
+  for (let i = 0; i < tops.length; i++) {
+    text(`${i+1}. ${tops[i]}`, juegoW/2, juegoH/2 + 80 + i*20);
+  }
+}
+
+function perderVida() {
+  vidas--;
+  if (vidas <= 0) {
+    guardarPuntaje();
+    estado = "fin";
+  }
+}
+
 function pasarNivel() {
   nivel++;
   if (nivel > 3) {
@@ -107,226 +364,59 @@ function pasarNivel() {
   }
 }
 
-// CONTROLES DEL TECLADO
+function generarEnemigos() {
+  enemigos = [];
+  let cantidad = nivel === 1 ? 5 : nivel === 2 ? 8 : 12;
+  for (let i = 0; i < cantidad; i++) enemigos.push(new Enemigo(nivel));
+  if (nivel >= 2) {
+    let cantidadMeteoritos = nivel === 2 ? 1 : 2;
+    for (let i = 0; i < cantidadMeteoritos; i++) {
+      let meteorito = new Enemigo(nivel);
+      meteorito.tipo = 'meteorito';
+      meteorito.vida = 3;
+      meteorito.puntaje = 15;
+      meteorito.dir = 0;
+      meteorito.x = random(100, juegoW - 100);
+      enemigos.push(meteorito);
+    }
+  }
+}
+
+function reiniciarJuego() {
+  nivel = 1;
+  vidas = 3;
+  puntaje = 0;
+  disparos = [];
+  disparosNeg = [];
+  enemigos = [];
+  estrellas = [];
+  jugador = new Nave();
+  generarEnemigos();
+  tiempoUltimaEstrella = millis();
+  estado = "jugando";
+
+  if (musicaFondo.isPlaying()) musicaFondo.stop();
+  musicaIniciada = false;
+}
+
 function keyPressed() {
   if (estado === "inicio" && key === " ") {
     estado = "jugando";
-  }
-  if (estado === "jugando") {
+  } else if (estado === "jugando") {
     if (keyCode === LEFT_ARROW) jugador.dir = -1;
     if (keyCode === RIGHT_ARROW) jugador.dir = 1;
     if (key === " ") {
-      disparos.push(new Disparo(jugador.x));
-    }
+    jugador.direccion = "arriba";
+    disparos.push(new Disparo(jugador.x));
+    if (sonidoDisparo && sonidoDisparo.isLoaded()) {
+    sonidoDisparo.play();
+  }
+}
+  } else if (estado === "fin" && (key === "r" || key === "R")) {
+    reiniciarJuego();
   }
 }
 
 function keyReleased() {
   if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) jugador.dir = 0;
 }
-
-// VIDAS
-function perderVida() {
-  vidas--;
-  if (vidas <= 0) {
-    guardarPuntaje();
-    estado = "fin";
-  }
-}
-
-// INTERFAZ DE USUARIO
-function mostrarHUD() {
-  fill(255);
-  textSize(20);
-  text(`Puntaje: ${puntaje}`, 10, 20);
-  text(`Vidas: ${vidas}`, 10, 40);
-  text(`Nivel: ${nivel}`, 10, 60);
-}
-
-function mostrarInicio() {
-  background(0);
-
-  textAlign(CENTER);
-  textFont("Press Start 2P");
-
-  // TITULO
-  let titulo = "GALAGA: INVASIÓN";
-  for (let i = 0; i < titulo.length; i++) {
-    let c = color(map(i, 0, titulo.length, 100, 255), random(100, 255), 255);
-    fill(c);
-    textSize(28);
-    text(titulo[i], width / 2 - 170 + i * 20, height / 2 - 140);
-  }
-
-  // INSTRUCCIONES
-  fill(255);
-  textSize(12);
-  text("← → para mover la nave", width / 2, height / 2 - 60);
-  text("Espacio para disparar", width / 2, height / 2 - 40);
-  text("Destruye a todos los enemigos", width / 2, height / 2 - 20);
-
-  // ESPACIO PARA COMENZAR
-  fill(random(150, 255), random(150, 255), 255); // efecto color cambiante
-  textSize(12);
-  text("Presiona ESPACIO para comenzar", width / 2, height / 2 + 20);
-
-  // TOP
-  fill(255);
-  mostrarTop();
-}
-
-function mostrarFin() {
-  fill(255);
-  textAlign(CENTER);
-  textSize(20);
-  text("¡Juego Terminado!", width / 2, height / 2 - 20);
-  text(`Puntaje final: ${puntaje}`, width / 2, height / 2);
-  text("Recarga la página para reiniciar", width / 2, height / 2 + 20);
-  mostrarTop();
-}
-
-// FUNCIONES PARA PUNTAJES
-function guardarPuntaje() {
-  tops.push(puntaje);
-  tops.sort((a, b) => b - a);
-  tops = tops.slice(0, 5);
-  localStorage.setItem("topPuntajes", JSON.stringify(tops));
-}
-
-function cargarTop() {
-  const data = localStorage.getItem("topPuntajes");
-  if (data) tops = JSON.parse(data);
-}
-
-function mostrarTop() {
-  textSize(16);
-  text("Top 5 Puntajes:", width / 2, height / 2 + 60);
-  for (let i = 0; i < tops.length; i++) {
-    text(`${i + 1}. ${tops[i]}`, width / 2, height / 2 + 80 + i * 20);
-  }
-}
-
-// CREA ENEMIGOS DEPENDIENDO DEL NIVEL
-function generarEnemigos() {
-  enemigos = [];
-  let cantidad = nivel === 1 ? 5 : nivel === 2 ? 8 : 12;
-  for (let i = 0; i < cantidad; i++) {
-    enemigos.push(new Enemigo(nivel));
-  }
-}
-
-// CLASES DEL JUEGO
-class DisparoEnemigo {
-  constructor(x, y) {
-    this.x = x;
-    this.y = y;
-  }
-  mover() {
-    this.y += 5;
-  }
-  mostrar() {
-    stroke(255, 0, 0);
-    strokeWeight(4);
-    line(this.x, this.y, this.x, this.y + 15);
-    strokeWeight(1);
-  }
-  fueraDePantalla() {
-    return this.y > height;
-  }
-  colisionaCon(nave) {
-    return dist(this.x, this.y, nave.x, nave.y) < 20;
-  }
-}
-
-class Enemigo {
-  constructor(nivel) {
-    this.x = random(50, width - 50);
-    this.y = random(-200, -40);
-    this.dir = random([-1, 1]);
-    this.vel = 0.5 + nivel * 0.5;
-    this.vida = nivel >= 2 && random() < 0.3 ? 3 : 1;
-    this.puntaje = this.vida === 3 ? 3 : 1;
-    this.nivel = nivel;
-  }
-  mover() {
-    if (this.nivel === 1) this.y += this.vel;
-    else if (this.nivel === 2) {
-      this.x += this.dir * 1.5;
-      this.y += this.vel;
-      if (this.x < 0 || this.x > width) this.dir *= -1;
-    } else {
-      this.x += this.dir * 2;
-      this.y += this.vel;
-      if (random() < 0.01) this.dir *= -1;
-    }
-  }
-  mostrar() {
-    imageMode(CENTER);
-    image(imgEnemigo, this.x, this.y, 80, 50); //POR  CADA NIVEL METER UN ENEMIGO DIFERENTE... MEJORAR ESO PLS
-  }
-  disparar() {
-    if (this.nivel >= 2 && random() < 0.01) {
-      disparosNeg.push(new DisparoEnemigo(this.x, this.y));
-    }
-  }
-  colisionaCon(nave) {
-    return dist(this.x, this.y, nave.x, nave.y) < 25;
-  }
-  llegoAbajo() {
-    return this.y > height;
-  }
-  fueAlcanzado(disparo) {
-    return dist(this.x, this.y, disparo.x, disparo.y) < 15;
-  }
-}
-
-class Nave {
-  constructor() {
-    this.x = width / 3;
-    this.y = height - 80;
-    this.dir = 0;
-    this.velocidad = 7;
-  }
-  mover() {
-    this.x += this.dir * this.velocidad;
-    this.x = constrain(this.x, 20, width - 20);
-  }
-  mostrar() {
-    imageMode(CENTER);
-    image(imgJugador, this.x, this.y - 20, 80, 80);
-  }
-}
-
-function mostrarHUD() {
-  const hud = document.getElementById("hud");
-  if (hud) {
-    hud.innerText = `Nivel: ${nivel}   Vidas: ${vidas}   Puntaje: ${puntaje}`;
-  }
-}
-
-class Disparo {
-  constructor(x) {
-    this.x = x;
-    this.y = height - 80;
-    this.angulo = random(-TWO_PI);
-    this.velocidad = random(0.1, 0.3);
-  }
-  mover() {
-    this.y -= 7;
-    this.angulo += this.velocidad; //GIRALAAAAA (HACE QUE EL DISPARO GIRE)
-  }
-  mostrar() {
-    push();
-    translate(this.x, this.y);
-    rotate(this.angulo);
-    imageMode(CENTER);
-    image(imgProyectil, 0, 0, 20, 40);
-    pop();
-    //imageMode(CENTER);
-    //image(imgDisparo, this.x, this.y, 20, 40);
-  }
-  fueraDePantalla() {
-    return this.y < 0;
-  }
-}
-
