@@ -1,9 +1,9 @@
 /// VARIABLES GLOBALES
+let retrofont; //LETRA CON ESTILO RETRO-VIDEOJUEGO
 let juegoW = 880;
 let juegoH = 650;
 let escala;
 let offsetX, offsetY;
-
 
 // Variables de juego
 let jugador;
@@ -23,9 +23,11 @@ let disparosNeg = [];
 let enemigos = [];
 let estrellas = [];
 let tiempoUltimaEstrella = 0;
-let intervaloEstrellas = 15000; 
+let intervaloEstrellas = 15000;
 let sonidoDisparo;
-
+//TRANSICION DE PASO DE NIVEL
+let tiempoTransicion = 0;
+let mostrarTransicion = false;
 
 // Música
 let musicaFondo;
@@ -46,10 +48,12 @@ function preload() {
   imgGameOver = loadImage("GameOver.png");
   sonidoDisparo = loadSound("bala.mp3");
   musicaFondo = loadSound("GetLuck.mp3");
+  retrofont = loadFont("PressStart2P-Regular.ttf");
 }
 
 function setup() {
   createCanvas(750, 700);
+  textFont(retrofont);
   escala = min(width / juegoW, height / juegoH) * 0.9;
   offsetX = (width - juegoW * escala) / 2;
   offsetY = (height - juegoH * escala) / 2;
@@ -93,6 +97,20 @@ function dibujarJuego() {
   } else if (estado === "jugando") {
     image(imgFondoJuego, 0, 0, juegoW, juegoH);
     actualizarJuego();
+  } else if (estado === "transicion") {
+    image(imgFondoJuego, 0, 0, juegoW, juegoH);
+    mostrarTransicionNivel();
+    if (millis() - tiempoTransicion > 2000) {
+      mostrarTransicion = false;
+      nivel++;
+      if (nivel > 3) {
+        guardarPuntaje();
+        estado = "fin";
+      } else {
+        generarEnemigos();
+        estado = "jugando";
+      }
+    }
   } else if (estado === "fin") {
     mostrarGameOver();
   }
@@ -112,7 +130,11 @@ class Nave {
   }
 
   mover() {
-    this.x = constrain(this.x + this.dir * this.velocidad, this.ancho/2, juegoW - this.ancho/2);
+    this.x = constrain(
+      this.x + this.dir * this.velocidad,
+      this.ancho / 2,
+      juegoW - this.ancho / 2
+    );
     if (keyIsDown(LEFT_ARROW)) this.direccion = "izquierda";
     else if (keyIsDown(RIGHT_ARROW)) this.direccion = "derecha";
     else this.direccion = "abajo";
@@ -120,11 +142,18 @@ class Nave {
 
   mostrar() {
     imageMode(CENTER);
-    switch(this.direccion) {
-      case "izquierda": image(imgJugadorIzquierda, this.x, this.y, this.ancho, this.alto); break;
-      case "derecha": image(imgJugadorDerecha, this.x, this.y, this.ancho, this.alto); break;
-      case "arriba": image(imgJugadorArriba, this.x, this.y, this.ancho, this.alto); break;
-      default: image(imgJugadorAbajo, this.x, this.y, this.ancho, this.alto);
+    switch (this.direccion) {
+      case "izquierda":
+        image(imgJugadorIzquierda, this.x, this.y, this.ancho, this.alto);
+        break;
+      case "derecha":
+        image(imgJugadorDerecha, this.x, this.y, this.ancho, this.alto);
+        break;
+      case "arriba":
+        image(imgJugadorArriba, this.x, this.y, this.ancho, this.alto);
+        break;
+      default:
+        image(imgJugadorAbajo, this.x, this.y, this.ancho, this.alto);
     }
   }
 }
@@ -136,20 +165,21 @@ class Enemigo {
     this.dir = random([-1, 1]);
     this.vel = 0.5 + nivel * 0.5;
     this.tipo = this.determinarTipo(nivel);
-    this.vida = this.tipo === 'meteorito' ? 3 : (nivel >= 2 && random() < 0.3 ? 3 : 1);
-    this.puntaje = this.tipo === 'meteorito' ? 15 : (this.vida === 3 ? 3 : 1);
+    this.vida =
+      this.tipo === "meteorito" ? 3 : nivel >= 2 && random() < 0.3 ? 3 : 1;
+    this.puntaje = this.tipo === "meteorito" ? 15 : this.vida === 3 ? 3 : 1;
     this.nivel = nivel;
-    this.ancho = this.tipo === 'meteorito' ? 50 : 60;
-    this.alto = this.tipo === 'meteorito' ? 50 : 80;
+    this.ancho = this.tipo === "meteorito" ? 50 : 60;
+    this.alto = this.tipo === "meteorito" ? 50 : 80;
   }
 
   determinarTipo(nivel) {
-    if (nivel >= 2 && random() < (nivel === 2 ? 0.1 : 0.15)) return 'meteorito';
-    return 'normal';
+    if (nivel >= 2 && random() < (nivel === 2 ? 0.1 : 0.15)) return "meteorito";
+    return "normal";
   }
 
   mover() {
-    if (this.tipo !== 'meteorito') {
+    if (this.tipo !== "meteorito") {
       this.x += this.dir * (this.nivel === 1 ? 0 : this.nivel === 2 ? 1.5 : 2);
       if (this.x < 0 || this.x > juegoW) this.dir *= -1;
       if (this.nivel === 3 && random() < 0.01) this.dir *= -1;
@@ -159,12 +189,20 @@ class Enemigo {
 
   mostrar() {
     imageMode(CENTER);
-    if (this.tipo === 'meteorito') image(imgMeteorito, this.x, this.y, this.ancho, this.alto);
-    else image(this.nivel >= 3 ? imgEnemigo2 : imgEnemigo1, this.x, this.y, this.ancho, this.alto);
+    if (this.tipo === "meteorito")
+      image(imgMeteorito, this.x, this.y, this.ancho, this.alto);
+    else
+      image(
+        this.nivel >= 3 ? imgEnemigo2 : imgEnemigo1,
+        this.x,
+        this.y,
+        this.ancho,
+        this.alto
+      );
   }
 
   disparar() {
-    if (this.nivel >= 2 && this.tipo !== 'meteorito' && random() < 0.01) {
+    if (this.nivel >= 2 && this.tipo !== "meteorito" && random() < 0.01) {
       disparosNeg.push(new DisparoEnemigo(this.x, this.y));
     }
   }
@@ -180,7 +218,9 @@ class Estrella {
     this.activa = true;
   }
 
-  mover() { this.y += this.vel; }
+  mover() {
+    this.y += this.vel;
+  }
 
   mostrar() {
     if (this.activa) {
@@ -197,8 +237,12 @@ class Disparo {
     this.ancho = 15;
     this.alto = 30;
   }
-  mover() { this.y -= 10; }
-  mostrar() { image(imgProyectil, this.x, this.y, this.ancho, this.alto); }
+  mover() {
+    this.y -= 10;
+  }
+  mostrar() {
+    image(imgProyectil, this.x, this.y, this.ancho, this.alto);
+  }
 }
 
 class DisparoEnemigo {
@@ -206,7 +250,9 @@ class DisparoEnemigo {
     this.x = x;
     this.y = y;
   }
-  mover() { this.y += 5; }
+  mover() {
+    this.y += 5;
+  }
   mostrar() {
     stroke(255, 0, 0);
     strokeWeight(2);
@@ -219,9 +265,9 @@ function mostrarMenuInicio() {
   textAlign(CENTER, CENTER);
   fill(255);
   textSize(32);
-  text("HAMSTER DEFENSE", juegoW/2, juegoH/2 - 50);
+  text("HAMSTER DEFENSE", juegoW / 2, juegoH / 2 - 50);
   textSize(16);
-  text("Presiona ESPACIO para comenzar", juegoW/2, juegoH/2 + 50);
+  text("Presiona ESPACIO para comenzar", juegoW / 2, juegoH / 2 + 50);
   pop();
 }
 
@@ -231,18 +277,21 @@ function mostrarGameOver() {
   textAlign(CENTER, CENTER);
   fill(255);
   textSize(32);
-  text("\u00a1GAME OVER!", juegoW/2, juegoH/2 - 80);
+  text("\u00a1GAME OVER!", juegoW / 2, juegoH / 2 - 80);
   textSize(24);
-  text(`Puntaje: ${puntaje}`, juegoW/2, juegoH/2 - 30);
+  text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 30);
   mostrarTop();
   textSize(16);
-  text("Presiona R para reiniciar", juegoW/2, juegoH/2 + 120);
-  text("Recarga para jugar", juegoW/2, juegoH/2 + 150);
+  text("Presiona R para reiniciar", juegoW / 2, juegoH / 2 + 120);
+  text("Recarga para jugar", juegoW / 2, juegoH / 2 + 150);
   pop();
 }
 
 function actualizarJuego() {
-  if (estrellas.length < nivel && millis() - tiempoUltimaEstrella > intervaloEstrellas) {
+  if (
+    estrellas.length < nivel &&
+    millis() - tiempoUltimaEstrella > intervaloEstrellas
+  ) {
     estrellas.push(new Estrella());
     tiempoUltimaEstrella = millis();
   }
@@ -252,7 +301,10 @@ function actualizarJuego() {
     estrella.mover();
     estrella.mostrar();
 
-    if (estrella.activa && dist(estrella.x, estrella.y, jugador.x, jugador.y) < 30) {
+    if (
+      estrella.activa &&
+      dist(estrella.x, estrella.y, jugador.x, jugador.y) < 30
+    ) {
       puntaje += 10;
       estrella.activa = false;
       estrellas.splice(i, 1);
@@ -260,7 +312,10 @@ function actualizarJuego() {
     }
 
     for (let j = disparos.length - 1; j >= 0; j--) {
-      if (estrella.activa && dist(disparos[j].x, disparos[j].y, estrella.x, estrella.y) < 20) {
+      if (
+        estrella.activa &&
+        dist(disparos[j].x, disparos[j].y, estrella.x, estrella.y) < 20
+      ) {
         puntaje += 10;
         estrella.activa = false;
         estrellas.splice(i, 1);
@@ -281,7 +336,10 @@ function actualizarJuego() {
     if (disparos[i].y < 0) disparos.splice(i, 1);
 
     for (let j = enemigos.length - 1; j >= 0; j--) {
-      if (dist(disparos[i]?.x, disparos[i]?.y, enemigos[j]?.x, enemigos[j]?.y) < 30) {
+      if (
+        dist(disparos[i]?.x, disparos[i]?.y, enemigos[j]?.x, enemigos[j]?.y) <
+        30
+      ) {
         enemigos[j].vida--;
         if (enemigos[j].vida <= 0) {
           puntaje += enemigos[j].puntaje;
@@ -298,7 +356,10 @@ function actualizarJuego() {
     enemigos[i].mostrar();
     enemigos[i].disparar();
 
-    if (dist(enemigos[i].x, enemigos[i].y, jugador.x, jugador.y) < 40 || enemigos[i].y > juegoH) {
+    if (
+      dist(enemigos[i].x, enemigos[i].y, jugador.x, jugador.y) < 40 ||
+      enemigos[i].y > juegoH
+    ) {
       perderVida();
       enemigos.splice(i, 1);
     }
@@ -307,8 +368,12 @@ function actualizarJuego() {
   for (let i = disparosNeg.length - 1; i >= 0; i--) {
     disparosNeg[i].mover();
     disparosNeg[i].mostrar();
-    if (disparosNeg[i].y > juegoH || dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20) {
-      if (dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20) perderVida();
+    if (
+      disparosNeg[i].y > juegoH ||
+      dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20
+    ) {
+      if (dist(disparosNeg[i].x, disparosNeg[i].y, jugador.x, jugador.y) < 20)
+        perderVida();
       disparosNeg.splice(i, 1);
     }
   }
@@ -340,9 +405,9 @@ function guardarPuntaje() {
 
 function mostrarTop() {
   textSize(16);
-  text("TOP 5:", juegoW/2, juegoH/2 + 60);
+  text("TOP 5:", juegoW / 2, juegoH / 2 + 60);
   for (let i = 0; i < tops.length; i++) {
-    text(`${i+1}. ${tops[i]}`, juegoW/2, juegoH/2 + 80 + i*20);
+    text(`${i + 1}. ${tops[i]}`, juegoW / 2, juegoH / 2 + 80 + i * 20);
   }
 }
 
@@ -362,6 +427,20 @@ function pasarNivel() {
   } else {
     generarEnemigos();
   }
+  mostrarTransicion = true;
+  tiempoTransicion = millis();
+  estado = "transicion";
+}
+
+//TRANSICION
+
+function mostrarTransicionNivel() {
+  push();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(32);
+  text(`¡Nivel ${nivel + 1}!`, juegoW / 2, juegoH / 2);
+  pop();
 }
 
 function generarEnemigos() {
@@ -372,7 +451,7 @@ function generarEnemigos() {
     let cantidadMeteoritos = nivel === 2 ? 1 : 2;
     for (let i = 0; i < cantidadMeteoritos; i++) {
       let meteorito = new Enemigo(nivel);
-      meteorito.tipo = 'meteorito';
+      meteorito.tipo = "meteorito";
       meteorito.vida = 3;
       meteorito.puntaje = 15;
       meteorito.dir = 0;
@@ -406,12 +485,12 @@ function keyPressed() {
     if (keyCode === LEFT_ARROW) jugador.dir = -1;
     if (keyCode === RIGHT_ARROW) jugador.dir = 1;
     if (key === " ") {
-    jugador.direccion = "arriba";
-    disparos.push(new Disparo(jugador.x));
-    if (sonidoDisparo && sonidoDisparo.isLoaded()) {
-    sonidoDisparo.play();
-  }
-}
+      jugador.direccion = "arriba";
+      disparos.push(new Disparo(jugador.x));
+      if (sonidoDisparo && sonidoDisparo.isLoaded()) {
+        sonidoDisparo.play();
+      }
+    }
   } else if (estado === "fin" && (key === "r" || key === "R")) {
     reiniciarJuego();
   }
