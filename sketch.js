@@ -13,7 +13,7 @@ let imgEnemigo1, imgEnemigo2, imgMeteorito;
 let imgFondoInicio, imgFondoJuego;
 let imgEstrella;
 let imgGameOver;
-let nivel = 1;
+let nivel = 3;
 let vidas = 30;
 let puntaje = 0;
 let estado = "inicio";
@@ -25,9 +25,14 @@ let estrellas = [];
 let tiempoUltimaEstrella = 0;
 let intervaloEstrellas = 15000;
 let sonidoDisparo;
-//TRANSICION DE PASO DE NIVEL
+
 let tiempoTransicion = 0;
 let mostrarTransicion = false;
+let imgVictoria; 
+let nombreJugador = "";
+let ingresandoNombre = false;
+
+
 
 // Música
 let musicaFondo;
@@ -49,10 +54,11 @@ function preload() {
   sonidoDisparo = loadSound("bala.mp3");
   musicaFondo = loadSound("GetLuck.mp3");
   retrofont = loadFont("PressStart2P-Regular.ttf");
+  imgVictoria = loadImage("Victoria.png"); 
 }
 
 function setup() {
-  createCanvas(750, 700);
+  createCanvas(880, 650);
   textFont(retrofont);
   escala = min(width / juegoW, height / juegoH) * 0.9;
   offsetX = (width - juegoW * escala) / 2;
@@ -87,6 +93,16 @@ function draw() {
 }
 
 function dibujarJuego() {
+  if (estado === "fin") {
+    // Estas imágenes deben estar fuera del push/scale/translate
+    if (nivel === 3 && enemigos.length === 0) {
+      mostrarVictoria();
+    } else {
+      mostrarGameOver();
+    }
+    return; // Salimos antes de hacer push/scale
+  }
+
   push();
   translate(offsetX, offsetY);
   scale(escala);
@@ -111,12 +127,11 @@ function dibujarJuego() {
         estado = "jugando";
       }
     }
-  } else if (estado === "fin") {
-    mostrarGameOver();
   }
 
   pop();
 }
+
 
 class Nave {
   constructor() {
@@ -282,10 +297,57 @@ function mostrarGameOver() {
   text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 30);
   mostrarTop();
   textSize(16);
-  text("Presiona R para reiniciar", juegoW / 2, juegoH / 2 + 120);
   text("Recarga para jugar", juegoW / 2, juegoH / 2 + 150);
   pop();
+  
+  if (ingresandoNombre) {
+  push();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textFont(retrofont);
+  textSize(16);
+  text("Escribe tu nombre y presiona ENTER:", juegoW / 2, juegoH / 2 + 150);
+  text("> " + nombreJugador + "_", juegoW / 2, juegoH / 2 + 180);
+  pop();
 }
+
+
+}
+
+function mostrarVictoria() {
+  image(imgVictoria, 0, 0, juegoW, juegoH);
+  push();
+  textAlign(CENTER, CENTER);
+  fill(255);
+  textSize(32);
+  text("¡HAS GANADO!", juegoW / 2, juegoH / 2 - 80);
+  textSize(24);
+  text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 30);
+  mostrarTop();
+  textSize(16);
+  pop();
+  
+  if (ingresandoNombre) {
+  push();
+  textFont(retrofont);
+  textSize(16);
+  textAlign(CENTER, CENTER);
+  fill(255);
+  text("Escribe tu nombre y presiona ENTER:", juegoW / 2, juegoH / 2 + 150);
+  
+  fill(0, 0, 0, 180); // fondo para el texto
+  rectMode(CENTER);
+  rect(juegoW / 2, juegoH / 2 + 180, 300, 40, 8); // caja con borde redondeado
+  
+  fill(255); // texto blanco
+  text("> " + nombreJugador + "_", juegoW / 2, juegoH / 2 + 180);
+  pop();
+}
+
+
+}
+
+
 
 function actualizarJuego() {
   if (
@@ -380,7 +442,16 @@ function actualizarJuego() {
   }
 
   mostrarHUD();
-  if (enemigos.length === 0) pasarNivel();
+  if (enemigos.length === 0) {
+  if (nivel === 3) {
+  estado = "fin";
+  ingresandoNombre = true;
+  nombreJugador = "";
+  } else {
+    pasarNivel();
+  }
+}
+
 }
 
 function mostrarHUD() {
@@ -394,44 +465,48 @@ function mostrarHUD() {
 
 function cargarTop() {
   const datos = localStorage.getItem("topPuntajes");
-  if (datos) tops = JSON.parse(datos);
+  if (datos) {
+    tops = JSON.parse(datos);
+  } else {
+    tops = [];
+  }
 }
 
-function guardarPuntaje() {
-  tops.push(puntaje);
-  tops.sort((a, b) => b - a);
+
+function guardarPuntaje(nombre, puntos) {
+  if (!nombre || nombre.trim() === "") nombre = "Anónimo";
+  tops.push({ nombre, puntaje: puntos });
+  tops.sort((a, b) => b.puntaje - a.puntaje);
   tops = tops.slice(0, 5);
   localStorage.setItem("topPuntajes", JSON.stringify(tops));
 }
 
-function mostrarTop() {
-  textSize(16);
-  textAlign(LEFT, TOP);
-  text("TOP 5:", juegoW / 2, juegoH / 2 + 60);
-  for (let i = 0; i < tops.length; i++) {
-    text(`${i + 1}. ${tops[i]}`, 20, juegoH / 2 + 80 + i * 20);
-  }
-}
+
+
 
 function perderVida() {
   vidas--;
   if (vidas <= 0) {
-    guardarPuntaje();
     estado = "fin";
+    ingresandoNombre = true;
+    nombreJugador = "";
   }
 }
 
+
 function pasarNivel() {
+  if (nivel === 3 && enemigos.some(e => e.tipo === "jefe")) return;
+
   if (nivel > 3) {
-    guardarPuntaje();
     estado = "fin";
   } else {
     generarEnemigos();
+    mostrarTransicion = true;
+    tiempoTransicion = millis();
+    estado = "transicion";
   }
-  mostrarTransicion = true;
-  tiempoTransicion = millis();
-  estado = "transicion";
 }
+
 
 //TRANSICION
 
@@ -522,6 +597,31 @@ function reiniciarJuego() {
   musicaIniciada = false;
 }
 
+function keyTyped() {
+  if (estado === "fin" && ingresandoNombre) {
+    if (keyCode === ENTER) {
+      if (nombreJugador.trim() === "") nombreJugador = "Anónimo";
+
+      // 🟢 Guarda el puntaje actual ANTES de reiniciar
+      guardarPuntaje(nombreJugador.trim(), puntaje);
+
+      cargarTop();
+      ingresandoNombre = false;
+
+      // ⚠️ Aquí no reiniciamos el puntaje todavía
+      setTimeout(() => {
+        reiniciarJuego(); // esto da tiempo a que el draw actualice la lista antes de limpiar
+      }, 100); 
+      
+    } else if (key.length === 1 && nombreJugador.length < 10) {
+      nombreJugador += key;
+    }
+  }
+}
+
+
+
+
 function keyPressed() {
   if (estado === "inicio" && key === " ") {
     estado = "jugando";
@@ -535,11 +635,31 @@ function keyPressed() {
         sonidoDisparo.play();
       }
     }
-  } else if (estado === "fin" && (key === "r" || key === "R")) {
+  } else if (estado === "fin" && !ingresandoNombre && (key === "r" || key === "R")) {
     reiniciarJuego();
+  } else if (estado === "fin" && ingresandoNombre && keyCode === BACKSPACE) {
+    nombreJugador = nombreJugador.slice(0, -1);
   }
+  
 }
+
 
 function keyReleased() {
   if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW) jugador.dir = 0;
+}
+
+function mostrarTop() {
+  textSize(16);
+  textAlign(LEFT, TOP);
+  const xTexto = 30;
+  const yInicio = juegoH / 2 + 60;
+  
+  text("TOP 5:", xTexto, yInicio);
+  
+  for (let i = 0; i < tops.length; i++) {
+    let entry = tops[i];
+    let nombre = entry?.nombre || "Sin nombre";
+    let puntos = entry?.puntaje ?? 0;
+    text(`${i + 1}. ${nombre}: ${puntos}`, xTexto, yInicio + 20 + i * 20);
+  }
 }
