@@ -14,7 +14,7 @@ let imgFondoInicio, imgFondoJuego;
 let imgEstrella;
 let imgGameOver;
 let nivel = 1;
-let vidas = 3;
+let vidas = 30;
 let puntaje = 0;
 let estado = "inicio";
 let tops = [];
@@ -37,7 +37,7 @@ function preload() {
   imgJugadorAbajo = loadImage("HamsterAbajo.png");
   imgJugadorArriba = loadImage("HamsterArriba.png");
   imgJugadorDerecha = loadImage("HamsterDerecha.png");
-  imgJugadorIzquierda = loadImage("HamsterIzquierda.png");
+  imgJugadorIzquierda = loadImage("HamsterIzquierda.PNG");
   imgEnemigo1 = loadImage("Enemigo1.png");
   imgEnemigo2 = loadImage("Enemigo2.png");
   imgMeteorito = loadImage("meteorito.png");
@@ -174,7 +174,7 @@ class Enemigo {
   }
 
   determinarTipo(nivel) {
-    if (nivel >= 2 && random() < (nivel === 2 ? 0.1 : 0.15)) return "meteorito";
+    if (nivel >= 1 && random() < (nivel === 2 ? 0.1 : 0.15)) return "meteorito";
     return "normal";
   }
 
@@ -345,6 +345,7 @@ function actualizarJuego() {
           puntaje += enemigos[j].puntaje;
           enemigos.splice(j, 1);
         }
+
         disparos.splice(i, 1);
         break;
       }
@@ -421,7 +422,6 @@ function perderVida() {
 }
 
 function pasarNivel() {
-  nivel++;
   if (nivel > 3) {
     guardarPuntaje();
     estado = "fin";
@@ -446,11 +446,12 @@ function mostrarTransicionNivel() {
 
 function generarEnemigos() {
   enemigos = [];
-  let cantidad = nivel === 1 ? 5 : nivel === 2 ? 8 : 12;
-  for (let i = 0; i < cantidad; i++) enemigos.push(new Enemigo(nivel));
-  if (nivel >= 2) {
-    let cantidadMeteoritos = nivel === 2 ? 1 : 2;
-    for (let i = 0; i < cantidadMeteoritos; i++) {
+
+  if (nivel === 1) {
+    for (let i = 0; i < 5; i++) enemigos.push(new Enemigo(nivel));
+  } else if (nivel === 2) {
+    for (let i = 0; i < 8; i++) enemigos.push(new Enemigo(nivel));
+    for (let i = 0; i < 1; i++) {
       let meteorito = new Enemigo(nivel);
       meteorito.tipo = "meteorito";
       meteorito.vida = 3;
@@ -459,8 +460,50 @@ function generarEnemigos() {
       meteorito.x = random(100, juegoW - 100);
       enemigos.push(meteorito);
     }
+  } else if (nivel === 3) {
+    let jefe = new JefeFinal();
+    enemigos.push(jefe);
   }
 }
+
+class JefeFinal {
+  constructor() {
+    this.x = juegoW / 2;
+    this.y = 100;
+    this.vida = 30;
+    this.ancho = 100;
+    this.alto = 120;
+    this.dir = 1;
+    this.vel = 2;
+    this.tipo = "jefe";
+    this.puntaje = 100;
+  }
+
+  mover() {
+    this.x += this.vel * this.dir;
+    if (this.x < 100 || this.x > juegoW - 100) this.dir *= -1;
+    if (random() < 0.02) this.disparar();
+  }
+
+  mostrar() {
+    fill(255, 0, 255);
+    stroke(255);
+    strokeWeight(2);
+    rectMode(CENTER);
+    rect(this.x, this.y, this.ancho, this.alto);
+    noStroke();
+    fill(255);
+    textAlign(CENTER);
+    textSize(14);
+    text(`Jefe: ${this.vida}`, this.x, this.y - 70);
+  }
+
+  disparar() {
+    disparosNeg.push(new DisparoEnemigo(this.x, this.y));
+  }
+}
+
+
 
 function reiniciarJuego() {
   nivel = 1;
