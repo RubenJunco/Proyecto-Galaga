@@ -405,9 +405,10 @@ function guardarPuntaje() {
 
 function mostrarTop() {
   textSize(16);
+  textAlign(LEFT, TOP);
   text("TOP 5:", juegoW / 2, juegoH / 2 + 60);
   for (let i = 0; i < tops.length; i++) {
-    text(`${i + 1}. ${tops[i]}`, juegoW / 2, juegoH / 2 + 80 + i * 20);
+    text(`${i + 1}. ${tops[i]}`, 20, juegoH / 2 + 80 + i * 20);
   }
 }
 
