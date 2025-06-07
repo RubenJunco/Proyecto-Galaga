@@ -13,7 +13,7 @@ let imgEnemigo1, imgEnemigo2, imgMeteorito;
 let imgFondoInicio, imgFondoJuego;
 let imgEstrella;
 let imgGameOver;
-let nivel = 3;
+let nivel = 1;
 let vidas = 3;
 let puntaje = 0;
 let estado = "inicio";
@@ -31,6 +31,12 @@ let mostrarTransicion = false;
 let imgVictoria; 
 let nombreJugador = "";
 let ingresandoNombre = false;
+let oleadaNivel1 = 1; // Controla cuántos grupos de enemigos van en el nivel 1
+let oleadaNivel2 = 1;
+let oleadaNivel3 = 1;
+
+
+
 
 
 
@@ -181,7 +187,7 @@ class Enemigo {
     this.x = random(50, juegoW - 50);
     this.y = random(-200, -40);
     this.dir = random([-1, 1]);
-    this.vel = 0.5 + nivel * 0.5;
+    this.vel = 0.5 + nivel * 0.2;
     this.tipo = this.determinarTipo(nivel);
     this.vida =
       this.tipo === "meteorito" ? 3 : nivel >= 2 && random() < 0.3 ? 3 : 1;
@@ -428,14 +434,77 @@ function actualizarJuego() {
       disparosNeg.splice(i, 1);
     }
   }
+mostrarHUD();
 
-  mostrarHUD();
-  if (enemigos.length === 0) {
-  if (nivel === 3) {
-  estado = "fin";
-  ingresandoNombre = true;
-  nombreJugador = "";
+if (enemigos.length === 0) {
+  if (nivel === 1 && oleadaNivel1 === 1) {
+    // Segunda oleada de nivel 1
+    oleadaNivel1++;
+    for (let i = 0; i < 5; i++) enemigos.push(new Enemigo(nivel));
+  }
+
+  else if (nivel === 2) {
+    if (oleadaNivel2 === 1) {
+      oleadaNivel2++;
+      // Segunda oleada: enemigos resistentes (vida 3, imgEnemigo2)
+      for (let i = 0; i < 4; i++) {
+        let enemigo = new Enemigo(nivel);
+        enemigo.vida = 3;
+        enemigo.tipo = "fuerte";
+        enemigo.puntaje = 3;
+        enemigos.push(enemigo);
+      }
+
+    } else if (oleadaNivel2 === 2) {
+      oleadaNivel2++;
+      // Tercera oleada: mezcla de normales y resistentes
+      for (let i = 0; i < 3; i++) {
+        let enemigo = new Enemigo(nivel);
+        enemigo.vida = 1;
+        enemigo.tipo = "normal";
+        enemigo.puntaje = 1;
+        enemigos.push(enemigo);
+      }
+      for (let i = 0; i < 2; i++) {
+        let enemigo = new Enemigo(nivel);
+        enemigo.vida = 3;
+        enemigo.tipo = "fuerte";
+        enemigo.puntaje = 3;
+        enemigos.push(enemigo);
+      }
+
+    } else {
+      pasarNivel();
+    }
+
+  } else if (nivel === 3) {
+  if (oleadaNivel3 === 1) {
+    oleadaNivel3++;
+
+    // Segunda oleada: 5 enemigos más resistentes
+    for (let i = 0; i < 5; i++) {
+      let enemigo = new Enemigo(nivel);
+      enemigo.vida = 2;
+      enemigo.tipo = "normal";
+      enemigo.puntaje = 2;
+      enemigos.push(enemigo);
+    }
+
+  } else if (oleadaNivel3 === 2) {
+    oleadaNivel3++;
+
+    // Oleadas terminadas: aparece jefe final
+    let jefe = new JefeFinal();
+    enemigos.push(jefe);
+
   } else {
+    // Seguridad por si algo sale mal
+    estado = "fin";
+    ingresandoNombre = true;
+    nombreJugador = "";
+  }
+}
+else {
     pasarNivel();
   }
 }
@@ -514,7 +583,9 @@ function generarEnemigos() {
   enemigos = [];
 
   if (nivel === 1) {
-    for (let i = 0; i < 5; i++) enemigos.push(new Enemigo(nivel));
+
+  oleadaNivel1 = 1;
+  for (let i = 0; i < 5; i++) enemigos.push(new Enemigo(nivel));
   } else if (nivel === 2) {
     for (let i = 0; i < 8; i++) enemigos.push(new Enemigo(nivel));
     for (let i = 0; i < 1; i++) {
@@ -526,10 +597,28 @@ function generarEnemigos() {
       meteorito.x = random(100, juegoW - 100);
       enemigos.push(meteorito);
     }
-  } else if (nivel === 3) {
-    let jefe = new JefeFinal();
-    enemigos.push(jefe);
+    } else if (nivel === 2) {
+  oleadaNivel2 = 1;
+  // Primera oleada
+  for (let i = 0; i < 5; i++) {
+    let enemigo = new Enemigo(nivel);
+    enemigo.vida = 1;
+    enemigo.tipo = "normal";
+    enemigo.puntaje = 1;
+    enemigos.push(enemigo);
   }
+  } else if (nivel === 3) {
+  oleadaNivel3 = 1;
+
+  // Primera oleada: enemigos resistentes tipo nivel 1
+  for (let i = 0; i < 5; i++) {
+    let enemigo = new Enemigo(nivel);
+    enemigo.vida = 2;
+    enemigo.tipo = "normal";
+    enemigo.puntaje = 2;
+    enemigos.push(enemigo);
+  }
+}
 }
 
 class JefeFinal {
@@ -678,4 +767,3 @@ function mostrarTop() {
     text(`${i + 1}. ${nombre}: ${puntos}`, xTexto, yInicio + 20 + i * 20);
   }
 }
-
