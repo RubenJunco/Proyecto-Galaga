@@ -14,7 +14,7 @@ let imgFondoInicio, imgFondoJuego;
 let imgEstrella;
 let imgGameOver;
 let nivel = 3;
-let vidas = 30;
+let vidas = 3;
 let puntaje = 0;
 let estado = "inicio";
 let tops = [];
@@ -42,7 +42,7 @@ function preload() {
   imgJugadorAbajo = loadImage("HamsterAbajo.png");
   imgJugadorArriba = loadImage("HamsterArriba.png");
   imgJugadorDerecha = loadImage("HamsterDerecha.png");
-  imgJugadorIzquierda = loadImage("HamsterIzquierda.PNG");
+  imgJugadorIzquierda = loadImage("HamsterIzquierda.png");
   imgEnemigo1 = loadImage("Enemigo1.png");
   imgEnemigo2 = loadImage("Enemigo2.png");
   imgMeteorito = loadImage("meteorito.png");
@@ -55,6 +55,10 @@ function preload() {
   musicaFondo = loadSound("GetLuck.mp3");
   retrofont = loadFont("PressStart2P-Regular.ttf");
   imgVictoria = loadImage("Victoria.png"); 
+  imgJefe = loadImage("jefe.png");
+  imgTransicion1 = loadImage("transicion1.png"); // Nivel 1 a 2
+  imgTransicion2 = loadImage("transicion2.png"); // Nivel 1 a 2
+
 }
 
 function setup() {
@@ -109,7 +113,6 @@ function dibujarJuego() {
 
   if (estado === "inicio") {
     image(imgFondoInicio, 0, 0, juegoW, juegoH);
-    mostrarMenuInicio();
   } else if (estado === "jugando") {
     image(imgFondoJuego, 0, 0, juegoW, juegoH);
     actualizarJuego();
@@ -275,30 +278,15 @@ class DisparoEnemigo {
   }
 }
 
-function mostrarMenuInicio() {
-  push();
-  textAlign(CENTER, CENTER);
-  fill(255);
-  textSize(32);
-  text("HAMSTER DEFENSE", juegoW / 2, juegoH / 2 - 50);
-  textSize(16);
-  text("Presiona ESPACIO para comenzar", juegoW / 2, juegoH / 2 + 50);
-  pop();
-}
-
 function mostrarGameOver() {
   image(imgGameOver, 0, 0, juegoW, juegoH);
   push();
   textAlign(CENTER, CENTER);
   fill(255);
-  textSize(32);
-  text("\u00a1GAME OVER!", juegoW / 2, juegoH / 2 - 80);
-  textSize(24);
-  text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 30);
+  textSize(20);
+  text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 140);
   mostrarTop();
-  textSize(16);
-  text("Recarga para jugar", juegoW / 2, juegoH / 2 + 150);
-  pop();
+  
   
   if (ingresandoNombre) {
   push();
@@ -320,7 +308,7 @@ function mostrarVictoria() {
   textAlign(CENTER, CENTER);
   fill(255);
   textSize(32);
-  text("¡HAS GANADO!", juegoW / 2, juegoH / 2 - 80);
+  text("¡HAS GANADO!", juegoW / 2, juegoH / 2 - 260);
   textSize(24);
   text(`Puntaje: ${puntaje}`, juegoW / 2, juegoH / 2 - 30);
   mostrarTop();
@@ -333,7 +321,7 @@ function mostrarVictoria() {
   textSize(16);
   textAlign(CENTER, CENTER);
   fill(255);
-  text("Escribe tu nombre y presiona ENTER:", juegoW / 2, juegoH / 2 + 150);
+  text("Escribe tu nombre y presiona ENTER:", juegoW / 2, juegoH / 2 + 140);
   
   fill(0, 0, 0, 180); // fondo para el texto
   rectMode(CENTER);
@@ -511,11 +499,14 @@ function pasarNivel() {
 //TRANSICION
 
 function mostrarTransicionNivel() {
+  if (nivel === 1) {
+    image(imgTransicion1, 0, 0, juegoW, juegoH);
+  } else if (nivel === 2) {
+    image(imgTransicion2, 0, 0, juegoW, juegoH);
+  }
+  
   push();
   fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(32);
-  text(`¡Nivel ${nivel + 1}!`, juegoW / 2, juegoH / 2);
   pop();
 }
 
@@ -552,32 +543,54 @@ class JefeFinal {
     this.vel = 2;
     this.tipo = "jefe";
     this.puntaje = 100;
+    this.ultimoDisparoLateral = 0;
+    this.intervaloDisparos = 2000; // 2 segundos entre disparos laterales
   }
 
   mover() {
     this.x += this.vel * this.dir;
     if (this.x < 100 || this.x > juegoW - 100) this.dir *= -1;
     if (random() < 0.02) this.disparar();
+    
+    // Disparos laterales cada cierto tiempo
+    let ahora = millis();
+    if (ahora - this.ultimoDisparoLateral > this.intervaloDisparos) {
+      this.dispararLateral();
+      this.ultimoDisparoLateral = ahora;
+    }
   }
 
   mostrar() {
-    fill(255, 0, 255);
-    stroke(255);
-    strokeWeight(2);
-    rectMode(CENTER);
-    rect(this.x, this.y, this.ancho, this.alto);
+    imageMode(CENTER);
+    image(imgJefe, this.x, this.y, this.ancho, this.alto);
+    
+    // Barra de vida
     noStroke();
+    fill(255, 0, 0);
+    rect(this.x - 50, this.y - 70, 100, 10);
+    fill(0, 255, 0);
+    rect(this.x - 50, this.y - 70, map(this.vida, 0, 30, 0, 100), 10);
+    
     fill(255);
     textAlign(CENTER);
     textSize(14);
-    text(`Jefe: ${this.vida}`, this.x, this.y - 70);
+    text(`Jefe: ${this.vida}`, this.x, this.y - 80);
   }
 
   disparar() {
+    // Disparo normal (usa el mismo que los enemigos del nivel 2)
     disparosNeg.push(new DisparoEnemigo(this.x, this.y));
   }
-}
 
+  dispararLateral() {
+    // Disparos laterales (1 a cada lado)
+    let izquierda = this.x - this.ancho/2 - 10;
+    let derecha = this.x + this.ancho/2 + 10;
+    
+    disparosNeg.push(new DisparoEnemigo(izquierda, this.y));
+    disparosNeg.push(new DisparoEnemigo(derecha, this.y));
+  }
+}
 
 
 function reiniciarJuego() {
@@ -602,16 +615,17 @@ function keyTyped() {
     if (keyCode === ENTER) {
       if (nombreJugador.trim() === "") nombreJugador = "Anónimo";
 
-      // 🟢 Guarda el puntaje actual ANTES de reiniciar
+      // Guarda el puntaje
       guardarPuntaje(nombreJugador.trim(), puntaje);
-
       cargarTop();
       ingresandoNombre = false;
 
-      // ⚠️ Aquí no reiniciamos el puntaje todavía
-      setTimeout(() => {
-        reiniciarJuego(); // esto da tiempo a que el draw actualice la lista antes de limpiar
-      }, 100); 
+      // Regresa a la pantalla de inicio en lugar de reiniciar inmediatamente
+      estado = "inicio";
+      nombreJugador = "";
+      puntaje = 0;
+      nivel = 1;
+      vidas = 3;
       
     } else if (key.length === 1 && nombreJugador.length < 10) {
       nombreJugador += key;
@@ -621,9 +635,10 @@ function keyTyped() {
 
 
 
-
 function keyPressed() {
   if (estado === "inicio" && key === " ") {
+    // Reinicia el juego solo cuando se presiona espacio en la pantalla de inicio
+    reiniciarJuego();
     estado = "jugando";
   } else if (estado === "jugando") {
     if (keyCode === LEFT_ARROW) jugador.dir = -1;
@@ -649,10 +664,10 @@ function keyReleased() {
 }
 
 function mostrarTop() {
-  textSize(16);
+  textSize(14);
   textAlign(LEFT, TOP);
-  const xTexto = 30;
-  const yInicio = juegoH / 2 + 60;
+  const xTexto = 40;
+  const yInicio = juegoH / 2 + 10;
   
   text("TOP 5:", xTexto, yInicio);
   
@@ -663,3 +678,4 @@ function mostrarTop() {
     text(`${i + 1}. ${nombre}: ${puntos}`, xTexto, yInicio + 20 + i * 20);
   }
 }
+
