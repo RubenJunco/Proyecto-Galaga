@@ -48,7 +48,7 @@ function preload() {
   imgJugadorAbajo = loadImage("HamsterAbajo.png");
   imgJugadorArriba = loadImage("HamsterArriba.png");
   imgJugadorDerecha = loadImage("HamsterDerecha.png");
-  imgJugadorIzquierda = loadImage("HamsterIzquierda.png");
+  imgJugadorIzquierda = loadImage("HamsterIzquierda.png");    
   imgEnemigo1 = loadImage("Enemigo1.png");
   imgEnemigo2 = loadImage("Enemigo2.png");
   imgMeteorito = loadImage("meteorito.png");
